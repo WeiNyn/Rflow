@@ -1,0 +1,16 @@
+name = "Time Echo"
+description = "Echo Time every minute"
+cron_schedule = "0 * * * * * *"
+stdout = "TimeEcho.log"
+stderr = "TimeEcho.err"
+
+[[tasks]]
+name = "Echo Exact Time"
+command = "echo $\"(($env.RFLOWTS | into int) * 1_000_000_000 | into datetime | format date '%Y-%m-%d %H:%M:%S')\""
+task_type = "Nu"
+
+[[tasks]]
+name = "Echo Time Now"
+command = "echo (date now)"
+dependencies = ["Echo Exact Time"]
+task_type = "Nu"

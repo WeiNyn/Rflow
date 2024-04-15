@@ -1,0 +1,17 @@
+name = "Time Echo new"
+description = "Echo Time every minute"
+cron_schedule = "15 * * * * * *"
+stdout = "TimeEcho.log"
+stderr = "TimeEcho.err"
+
+[[tasks]]
+name = "Echo Exact Time 2"
+command = "echo $\"(($env.RFLOWTS | into int) * 1_000_000_000 | into datetime | format date '%Y-%m-%d %H:%M:%S')\" | random_command that will failed"
+task_type = "Nu"
+retry_policy = { delay = 10, max_retries = 3 }
+
+[[tasks]]
+name = "Echo Time Now 2"
+command = "echo (date now)"
+dependencies = ["Echo Exact Time 2"]
+task_type = "Nu"

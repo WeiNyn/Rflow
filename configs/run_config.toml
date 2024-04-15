@@ -1,0 +1,4 @@
+jobs_folder = "job_configs"
+log_folder = "~/.rflow"
+log_level = "INFO"
+watch = false
