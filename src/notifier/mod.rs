@@ -1,6 +1,7 @@
-use failure::Error;
+use failure::{format_err, Error};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
+use std::{os::unix::process::CommandExt, process::Command};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ZaloNotifier {
@@ -8,7 +9,6 @@ pub struct ZaloNotifier {
     pub sender_id: u64,
     pub owner_id: u64,
 }
-
 
 impl ZaloNotifier {
     pub fn new(group_id: u64, sender_id: u64, owner_id: u64) -> ZaloNotifier {
@@ -22,27 +22,25 @@ impl ZaloNotifier {
     pub async fn send_msg(&self, msg: &str) -> Result<(), Error> {
         println!("Sending message to Zalo group: {}", msg);
 
-        let url = "http://10.30.58.19:8080/iapi/groupmsg/text";
+        let mut command = Command::new("python");
+        command
+            .arg("pythons/send_notif.py")
+            .arg(self.sender_id.to_string())
+            .arg(msg)
+            .arg(self.owner_id.to_string());
 
-        let client = reqwest::Client::new();
-        let json_body = format!(
-            r#"{{
-                "group_id": {},
-                "user_id": {},
-                "tag_uids": {},
-                "msg": "{}"
-            }}"#,
-            self.group_id, self.sender_id, self.owner_id, msg
-        );
+        command.spawn()?.wait()?;
 
-        let res = client.post(url).body(json_body).send().await?;
+        let output = command.output()?;
 
-        if res.status().is_success() {
-            info!("Message sent successfully");
+
+        if output.status.success() {
+            info!("Sent message to Zalo group successfully");
+            Ok(())
         } else {
-            error!("Failed to send message");
+            let error_msg = String::from_utf8(output.stderr)?;
+            error!("Failed to send message to Zalo group: {}", error_msg);
+            Err(format_err!("Failed to send message to Zalo group"))
         }
-
-        Ok(())
     }
 }

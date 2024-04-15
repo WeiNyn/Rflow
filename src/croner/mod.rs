@@ -108,7 +108,8 @@ impl Croner {
             )?;
 
             debug!("Adding job {:?}", job_name);
-
+            info!("Adding job {} with schedule '{}'", job_name, cron_expr.as_str());
+                
             let guid = rcron_job.guid();
 
             scheduler.add(rcron_job).await?;

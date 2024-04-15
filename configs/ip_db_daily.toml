@@ -1,0 +1,4 @@
+jobs_folder = "ip_db_daily"
+log_folder = "/home/zdeploy/huynx7/.rflow"
+log_level = "INFO"
+watch = false

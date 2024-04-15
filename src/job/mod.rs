@@ -13,8 +13,8 @@ use toml::from_str;
 
 pub fn default_notifier() -> ZaloNotifier {
     ZaloNotifier {
-        group_id: 210965174,
-        sender_id: 417139620,
+        group_id: 417139620,
+        sender_id: 210965174,
         owner_id: 217856628,
     }
 }
