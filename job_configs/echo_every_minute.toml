@@ -3,6 +3,9 @@ description = "Echo Time every minute"
 cron_schedule = "0 * * * * * *"
 stdout = "TimeEcho.log"
 stderr = "TimeEcho.err"
+[notifier.Slack]
+webhook_url = "https://hooks.slack.com/services/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"
+owner_id = "U06V024CRJL"
 
 [[tasks]]
 name = "Echo Exact Time"

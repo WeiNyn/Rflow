@@ -1,46 +1,81 @@
 use failure::{format_err, Error};
 use log::{error, info};
+use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
-use std::{os::unix::process::CommandExt, process::Command};
+use serde_json::json;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ZaloNotifier {
-    pub group_id: u64,
-    pub sender_id: u64,
-    pub owner_id: u64,
+pub fn default_notifier() -> Option<Notifier> {
+    return None;
 }
 
-impl ZaloNotifier {
-    pub fn new(group_id: u64, sender_id: u64, owner_id: u64) -> ZaloNotifier {
-        ZaloNotifier {
-            group_id,
-            sender_id,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum Notifier {
+    Slack(SlackNotifier),
+}
+
+pub trait Notify {
+    async fn send_msg(&self, msg: &str) -> Result<(), Error>;
+}
+
+impl Notify for Notifier {
+    async fn send_msg(&self, msg: &str) -> Result<(), Error> {
+        match self {
+            Notifier::Slack(notifier) => notifier.send_msg(msg).await,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SlackNotifier {
+    pub webhook_url: String,
+    pub owner_id: String,
+}
+
+impl SlackNotifier {
+    pub fn new(webhook_url: String, owner_id: String) -> SlackNotifier {
+        SlackNotifier {
+            webhook_url,
             owner_id,
         }
     }
+}
 
-    pub async fn send_msg(&self, msg: &str) -> Result<(), Error> {
-        println!("Sending message to Zalo group: {}", msg);
+impl Notify for SlackNotifier {
+    async fn send_msg(&self, msg: &str) -> Result<(), Error> {
+        println!("Sending message to Slack: {}", msg);
 
-        let mut command = Command::new("python");
-        command
-            .arg("pythons/send_notif.py")
-            .arg(self.sender_id.to_string())
-            .arg(msg)
-            .arg(self.owner_id.to_string());
+        let client = reqwest::Client::new();
 
-        command.spawn()?.wait()?;
+        let res = client
+            .post(&self.webhook_url)
+            .header(CONTENT_TYPE, "application/json")
+            .json(&json!({ "text": format!("{}\ncc: <@{}>", msg, self.owner_id) }))
+            .send()
+            .await?;
 
-        let output = command.output()?;
-
-
-        if output.status.success() {
-            info!("Sent message to Zalo group successfully");
+        if res.status().is_success() {
+            info!("Sent message to Slack successfully");
             Ok(())
         } else {
-            let error_msg = String::from_utf8(output.stderr)?;
-            error!("Failed to send message to Zalo group: {}", error_msg);
-            Err(format_err!("Failed to send message to Zalo group"))
+            let error_msg = res.text().await?;
+            error!("Failed to send message to Slack: {}", error_msg);
+            Err(format_err!("Failed to send message to Slack"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_slack_notifier_send_msg() {
+        let notifier = SlackNotifier::new(
+            "https://hooks.slack.com/services/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"
+                .to_string(),
+            "U06V024CRJL".to_string(),
+        );
+        let res = notifier.send_msg("Hello, world!").await;
+        assert!(res.is_ok());
     }
 }

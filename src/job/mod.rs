@@ -1,4 +1,7 @@
-use crate::{notifier::ZaloNotifier, task};
+use crate::{
+    notifier::{default_notifier, Notifier, Notify},
+    task,
+};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -10,14 +13,6 @@ use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use toml::from_str;
-
-pub fn default_notifier() -> ZaloNotifier {
-    ZaloNotifier {
-        group_id: 417139620,
-        sender_id: 210965174,
-        owner_id: 217856628,
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TaskConfig {
@@ -44,7 +39,7 @@ pub struct JobConfig {
     pub stdout: String,
     pub stderr: String,
     #[serde(default = "default_notifier")]
-    pub notifier: ZaloNotifier,
+    pub notifier: Option<Notifier>,
 }
 
 #[derive(Clone)]
@@ -58,7 +53,7 @@ pub struct Job {
     pub meta_data: HashMap<String, String>,
     pub stdout: String,
     pub stderr: String,
-    pub notifier: ZaloNotifier,
+    pub notifier: Option<Notifier>,
 }
 
 impl Job {
@@ -135,7 +130,11 @@ impl Job {
             chrono::Local::now().format("%m-%d %H:%M:%S"),
             self.name
         );
-        self.notifier.send_msg(&msg).await?;
+
+        match &self.notifier {
+            Some(notifier) => notifier.send_msg(&msg).await?,
+            None => {}
+        }
 
         debug!("Clear all tasks status");
         for task in self.tasks.iter() {
@@ -259,7 +258,11 @@ impl Job {
                         chrono::Local::now().format("%m-%d %H:%M:%S"),
                         self.name
                     );
-                    self.notifier.send_msg(&msg).await?;
+
+                    match self.notifier {
+                        Some(ref notifier) => notifier.send_msg(&msg).await?,
+                        None => {}
+                    }
                 } else {
                     error!("JOB FAILED [{}]", self.name);
 
@@ -268,7 +271,11 @@ impl Job {
                         chrono::Local::now().format("%m-%d %H:%M:%S"),
                         self.name
                     );
-                    self.notifier.send_msg(&msg).await?;
+
+                    match self.notifier {
+                        Some(ref notifier) => notifier.send_msg(&msg).await?,
+                        None => {}
+                    }
                 }
                 break;
             }

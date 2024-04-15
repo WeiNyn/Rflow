@@ -1,0 +1,38 @@
+name = "IP DB Daily"
+description = "Parse IP DB Daily"
+cron_schedule = "0 0 9 * * * *"
+stdout = "/home/zdeploy/huynx7/.rflow/jobs/ParseIPDBDaily.log"
+stderr = "/home/zdeploy/huynx7/.rflow/jobs/ParseIPDBDaily.err"
+[notifier.Slack]
+webhook_url = "https://hooks.slack.com/services/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"
+owner_id = "U06V024CRJL"
+
+[environments]
+POLARS_MAX_THREADS = "12"
+AUTHEN_COM_SOURCE = "/data/zminer/huynx7/IP-AUTHEN-PC-DISTINCT"
+AUTHEN_PC_SOURCE = "/data/zminer/huynx7/IP-AUTHEN-COM-DISTINCT"
+AUTHEN_COM_DEST = "/data/rsync/huynx7/jobs/IP-AUTHEN-PC"
+AUTHEN_PC_DEST = "/data/rsync/huynx7/jobs/IP-AUTHEN-COM"
+GEOIP_DB = "/home/zdeploy/huynx7/workspace/tools/GeoLite2-City.mmdb"
+DBT = "/home/zdeploy/miniconda3/envs/dbt/bin/dbt"
+DBT_PROJECT = "/home/zdeploy/huynx7/workspace/DAGSTER_DBT/dbt/"
+PYTHON_EXEC = "/home/zdeploy/miniconda3/envs/dbt/bin/python"
+
+[[tasks]]
+name = "Parse IP AUTHEN PC"
+command = "dutils parse-ip -i $AUTHEN_PC_SOURCE/$(date -d @$(expr $RFLOWTS - 86400) +%y-%m-%d)/part-00000 -o $AUTHEN_PC_DEST/$(date -d @$(expr $RFLOWTS - 86400) +%y-%m-%d)/parse-ip.pq -g $GEOIP_DB"
+
+[[tasks]]
+name = "Parse IP AUTHEN COM"
+command = "dutils parse-ip -i $AUTHEN_COM_SOURCE/$(date -d @$(expr $RFLOWTS - 86400) +%y-%m-%d)/part-00000 -o $AUTHEN_COM_DEST/$(date -d @$(expr $RFLOWTS - 86400) +%y-%m-%d)/parse-ip.pq -g $GEOIP_DB"
+dependencies = ["Parse IP AUTHEN PC"]
+
+[[tasks]]
+name = "Run DBT"
+command = "cd $DBT_PROJECT && $DBT run --vars \"{'running_date': '$(date -d @$(expr $RFLOWTS - 86400) +%y-%m-%d)'}\""
+dependencies = ["Parse IP AUTHEN PC", "Parse IP AUTHEN COM"]
+
+[[tasks]]
+name = "Write IP Jumps"
+command = "$PYTHON_EXEC /home/zdeploy/huynx7/workspace/crontab/write_ip_jump.py $(date -d @$(expr $RFLOWTS - 86400) +%y-%m-%d)"
+dependencies = ["Run DBT"]
